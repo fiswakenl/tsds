@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 
 # пути к файлам
-input_path = r'series_160077920.csv'
-output_path = r'series_160077920_filled.csv'
+input_path = r'data/top_series/series_160077920.csv'
+output_path = r'data/processed/series_160077920_filled.csv'
 
 # чтение с парсингом даты
 df = pd.read_csv(input_path, parse_dates=['date'])
