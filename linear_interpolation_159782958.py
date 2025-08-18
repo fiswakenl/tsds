@@ -1,8 +1,8 @@
 import pandas as pd
 
-# пути к файлам
-input_path = r'C:\Users\alexa\OneDrive\Рабочий стол\my python codes\series_159782958.csv'
-output_path = r'C:\Users\alexa\OneDrive\Рабочий стол\my python codes\series_159782958_filled.csv'
+# file paths
+input_path = r'series_159782958.csv'
+output_path = r'series_159782958_filled.csv'
 
 # чтение с парсингом даты
 df = pd.read_csv(input_path, parse_dates=['date'])

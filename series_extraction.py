@@ -2,7 +2,7 @@ import os
 
 import pandas as pd
 
-input_file = r'D:\collected.csv'  # путь к csv
+input_file = r'collected.csv'  # путь к csv
 output_dir = 'filtered_series'  # папка для сохранения результатов
 select_top_n = 10  # сколько рядов выбрать и сохранить
 
