@@ -47,5 +47,4 @@ def compare_all_methods(series_id, save_csv=False):
             results[method_name] = None
     
     compare_methods(original_data, results, series_id)
-    return results
 
