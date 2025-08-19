@@ -28,7 +28,7 @@ class InterpolationController:
         """Возвращает список доступных методов интерполяции."""
         return list(self.available_methods.keys())
     
-    def interpolate_series(self, server_id, method="linear", input_dir="data/top_series", output_dir="data/processed"):
+    def interpolate_series(self, server_id, method="linear", input_dir="data/top_series", output_dir="data/processed", save_results=False):
         """
         Применяет выбранный метод интерполяции к временному ряду.
         
@@ -37,6 +37,7 @@ class InterpolationController:
             method (str): Метод интерполяции (linear, polynomial, spline, log)
             input_dir (str): Папка с исходными данными
             output_dir (str): Папка для сохранения результатов
+            save_results (bool): Сохранять ли результаты в файл (по умолчанию False)
             
         Returns:
             pandas.DataFrame: Интерполированный временной ряд
@@ -63,15 +64,16 @@ class InterpolationController:
         # Вызываем функцию interpolate из модуля
         result_df = method_module.interpolate(df.copy())
         
-        # Сохраняем результат
-        output_path = Path(output_dir) / f"series_{server_id}_{method}_filled.csv"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        result_df.to_csv(output_path, index=False, date_format='%Y-%m-%d')
+        # Сохраняем результат только если save_results=True
+        if save_results:
+            output_path = Path(output_dir) / f"series_{server_id}_{method}_filled.csv"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            result_df.to_csv(output_path, index=False, date_format='%Y-%m-%d')
+            print(f"Результат сохранен: {output_path}")
         
-        print(f"Результат сохранен: {output_path}")
         return result_df
     
-    def compare_methods(self, server_id, methods=None, input_dir="data/top_series"):
+    def compare_methods(self, server_id, methods=None, input_dir="data/top_series", save_results=False):
         """
         Сравнивает разные методы интерполяции для одного сервера.
         
@@ -79,6 +81,7 @@ class InterpolationController:
             server_id (str): ID сервера
             methods (list): Список методов для сравнения. Если None, использует все доступные
             input_dir (str): Папка с исходными данными
+            save_results (bool): Сохранять ли результаты в файл (по умолчанию False)
             
         Returns:
             dict: Словарь с результатами интерполяции для каждого метода
@@ -91,27 +94,27 @@ class InterpolationController:
         
         for method in methods:
             try:
-                result = self.interpolate_series(server_id, method, input_dir)
+                result = self.interpolate_series(server_id, method, input_dir, save_results=save_results)
                 results[method] = result
-                print(f"✓ Метод '{method}' применен успешно")
+                print(f"[OK] Метод '{method}' применен успешно")
             except Exception as e:
-                print(f"✗ Ошибка в методе '{method}': {e}")
+                print(f"[ERROR] Ошибка в методе '{method}': {e}")
                 results[method] = None
         
         return results
 
 
 # Функции для удобства использования
-def interpolate(server_id, method="linear", **kwargs):
+def interpolate(server_id, method="linear", save_results=False, **kwargs):
     """Быстрая интерполяция без создания объекта контроллера."""
     controller = InterpolationController()
-    return controller.interpolate_series(server_id, method, **kwargs)
+    return controller.interpolate_series(server_id, method, save_results=save_results, **kwargs)
 
 
-def compare_all_methods(server_id, **kwargs):
+def compare_all_methods(server_id, save_results=False, **kwargs):
     """Быстрое сравнение всех методов для сервера."""
     controller = InterpolationController()
-    return controller.compare_methods(server_id, **kwargs)
+    return controller.compare_methods(server_id, save_results=save_results, **kwargs)
 
 
 if __name__ == "__main__":
