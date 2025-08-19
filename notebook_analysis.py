@@ -13,13 +13,39 @@ subprocess.run([sys.executable, "series_extraction.py"], check=True)
 # %% Быстрая интерполяция с графиком
 def quick_plot(series_id, method="linear"):
     """Интерполяция + график одной командой"""
+    # Загружаем исходные данные
+    import pandas as pd
+    from pathlib import Path
+
+    input_path = Path("data/top_series") / f"series_{series_id}.csv"
+    original_data = pd.read_csv(input_path, parse_dates=["date"])
+
+    # Выполняем интерполяцию
     result = interpolate(series_id, method)
 
-    # Простой график
+    # График с исходными и интерполированными данными
     plt.figure(figsize=(12, 6))
+
+    # Исходные данные (точки)
     plt.plot(
-        result["date"], result["value"], "b-", alpha=0.8, label=f"{method} интерполяция"
+        original_data["date"],
+        original_data["value"],
+        "ro",
+        alpha=0.7,
+        markersize=4,
+        label="Исходные данные",
     )
+
+    # Интерполированные данные (линия)
+    plt.plot(
+        result["date"],
+        result["value"],
+        "b-",
+        alpha=0.8,
+        linewidth=2,
+        label=f"{method} интерполяция",
+    )
+
     plt.title(f"Временной ряд {series_id}")
     plt.legend()
     plt.grid(True, alpha=0.3)
