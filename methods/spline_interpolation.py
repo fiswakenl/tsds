@@ -1,7 +1,3 @@
-"""
-Сплайн-интерполяция для временных рядов нагрузки серверов.
-Подходит для сложных паттернов с множественными изгибами и плавными переходами.
-"""
 
 import pandas as pd
 import numpy as np
@@ -13,7 +9,6 @@ def interpolate(df, order=3):
     server_id = df['id'].iloc[0]
     
     if len(df) < order + 1:
-        # Для небольших данных используем линейную интерполяцию
         return df.set_index('date').reindex(
             pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='D')
         ).interpolate(method='linear').fillna(method='bfill').fillna(method='ffill').reset_index().rename(

@@ -1,7 +1,3 @@
-"""
-Адаптивная интерполяция - использование разных методов для разных пропусков.
-Анализирует каждый пропуск индивидуально и выбирает оптимальный метод.
-"""
 
 import pandas as pd
 import numpy as np
@@ -12,30 +8,18 @@ warnings.filterwarnings('ignore')
 
 
 def detect_gaps(data):
-    """
-    Детектирует все пропуски в временном ряду.
-    
-    Args:
-        data: DataFrame с колонками ['date', 'value']
-        
-    Returns:
-        list: Список пропусков с информацией о каждом
-    """
-    # Создаем полный диапазон дат
     full_range = pd.date_range(
         start=data['date'].min(), 
         end=data['date'].max(), 
         freq='D'
     )
     
-    # Находим отсутствующие даты
     existing_dates = set(data['date'].dt.date)
     missing_dates = [d.date() for d in full_range if d.date() not in existing_dates]
     
     if not missing_dates:
         return []
     
-    # Группируем последовательные пропуски
     gaps = []
     current_gap = [missing_dates[0]]
     
@@ -43,11 +27,9 @@ def detect_gaps(data):
         prev_date = missing_dates[i-1]
         curr_date = missing_dates[i]
         
-        # Если даты идут подряд, добавляем к текущему пропуску
         if (curr_date - prev_date).days == 1:
             current_gap.append(curr_date)
         else:
-            # Сохраняем текущий пропуск и начинаем новый
             gaps.append({
                 'start_date': current_gap[0],
                 'end_date': current_gap[-1],
@@ -56,7 +38,6 @@ def detect_gaps(data):
             })
             current_gap = [curr_date]
     
-    # Добавляем последний пропуск
     gaps.append({
         'start_date': current_gap[0],
         'end_date': current_gap[-1],
@@ -68,27 +49,13 @@ def detect_gaps(data):
 
 
 def analyze_local_context(data, gap, window_size=5):
-    """
-    Анализирует локальный контекст вокруг пропуска.
-    
-    Args:
-        data: Исходные данные
-        gap: Информация о пропуске
-        window_size: Размер окна для анализа
-        
-    Returns:
-        dict: Характеристики локального контекста
-    """
-    # Приводим к одному формату datetime
     gap_start = pd.to_datetime(gap['start_date']).tz_localize(None)
     gap_end = pd.to_datetime(gap['end_date']).tz_localize(None)
     
-    # Убираем timezone из данных если есть
     data_dates = data['date'].dt.tz_localize(None) if data['date'].dt.tz is not None else data['date']
     
-    # Данные до пропуска
     before_data = data[data_dates < gap_start].tail(window_size)
-    # Данные после пропуска  
+  
     after_data = data[data_dates > gap_end].head(window_size)
     
     context = {
@@ -99,7 +66,6 @@ def analyze_local_context(data, gap, window_size=5):
         'after_points': len(after_data)
     }
     
-    # Анализ тренда до пропуска
     if len(before_data) >= 2:
         before_values = before_data['value'].values
         before_trend = np.polyfit(range(len(before_values)), before_values, 1)[0]
@@ -111,7 +77,6 @@ def analyze_local_context(data, gap, window_size=5):
         context['before_volatility'] = 0
         context['before_mean'] = 0
     
-    # Анализ тренда после пропуска
     if len(after_data) >= 2:
         after_values = after_data['value'].values
         after_trend = np.polyfit(range(len(after_values)), after_values, 1)[0]
@@ -123,7 +88,6 @@ def analyze_local_context(data, gap, window_size=5):
         context['after_volatility'] = 0
         context['after_mean'] = 0
     
-    # Общие характеристики
     if context['has_before'] and context['has_after']:
         context['trend_consistency'] = abs(context['before_trend'] - context['after_trend'])
         context['level_jump'] = abs(context['before_mean'] - context['after_mean'])
@@ -135,7 +99,6 @@ def analyze_local_context(data, gap, window_size=5):
         context['level_jump'] = float('inf')
         context['is_stable'] = False
     
-    # Позиция пропуска в ряду
     data_min_date = data['date'].min()
     if data_min_date.tz is not None:
         data_min_date = data_min_date.tz_localize(None)
@@ -146,60 +109,46 @@ def analyze_local_context(data, gap, window_size=5):
     total_days = (data_max_date - data_min_date).days
     gap_position = (gap_start - data_min_date).days / total_days if total_days > 0 else 0
     
-    context['gap_position'] = gap_position  # 0 = начало, 1 = конец
+    context['gap_position'] = gap_position
     context['is_edge_gap'] = gap_position < 0.1 or gap_position > 0.9
     
     return context
 
 
 def select_method_for_gap(context):
-    """
-    Выбирает оптимальный метод интерполяции для конкретного пропуска.
-    
-    Args:
-        context: Контекст пропуска из analyze_local_context
-        
-    Returns:
-        str: Название метода интерполяции
-    """
     gap_size = context['gap_size']
     is_stable = context['is_stable']
     is_edge = context['is_edge_gap']
     
-    # Правила выбора метода
     if gap_size == 1:
-        # Одиночные пропуски - всегда линейная интерполяция
         return 'linear'
     
     elif gap_size <= 3:
-        # Короткие пропуски (2-3 дня)
         if is_stable:
             return 'linear'
         else:
-            return 'spline'  # Для более гибкой адаптации
+            return 'spline'
     
     elif gap_size <= 7:
-        # Средние пропуски (4-7 дней)
         if is_stable and context['trend_consistency'] < 5:
-            return 'linear'  # Стабильный тренд
+            return 'linear'
         elif context['level_jump'] < 20:
-            return 'polynomial'  # Плавный переход
+            return 'polynomial'
         else:
-            return 'spline'  # Сложные изменения
+            return 'spline'
     
     else:
-        # Длинные пропуски (>7 дней)
         if is_edge:
-            return 'linear'  # На краях ряда - консервативный подход
+            return 'linear'
         elif context['has_before'] and context['has_after']:
             if abs(context['before_trend']) > 5 or abs(context['after_trend']) > 5:
-                return 'polynomial'  # Есть тренд
+                return 'polynomial'
             else:
-                return 'spline'  # Сложные паттерны
+                return 'spline'
         else:
-            return 'linear'  # Безопасный выбор
+            return 'linear'
     
-    return 'linear'  # Fallback
+    return 'linear'
 
 
 def adaptive_interpolate(data):
@@ -212,13 +161,11 @@ def adaptive_interpolate(data):
     Returns:
         dict: Результаты интерполяции с детальной информацией
     """
-    print("Запуск адаптивной интерполяции...")
     
     # Детектируем пропуски
     gaps = detect_gaps(data)
     
     if not gaps:
-        print("Пропусков не найдено!")
         return {
             'interpolated_data': data,
             'gaps_info': [],
@@ -226,7 +173,6 @@ def adaptive_interpolate(data):
             'success': True
         }
     
-    print(f"Найдено {len(gaps)} пропусков:")
     
     # Анализируем каждый пропуск и выбираем метод
     gap_methods = []
@@ -243,8 +189,6 @@ def adaptive_interpolate(data):
         }
         gap_methods.append(gap_info)
         
-        print(f"  Пропуск {i+1}: {gap['size']} дней ({gap['start_date']} - {gap['end_date']}) -> {method}")
-        print(f"    Причина: {gap_info['reason']}")
     
     # Создаем результирующий DataFrame
     result_data = data.copy()
@@ -266,8 +210,6 @@ def adaptive_interpolate(data):
     # Финальная интерполяция с самым частым методом (упрощение)
     most_common_method = max(methods_used.keys(), key=methods_used.get) if methods_used else 'linear'
     
-    print(f"\nИспользуемые методы: {methods_used}")
-    print(f"Основной метод для финальной интерполяции: {most_common_method}")
     
     return {
         'interpolated_data': result_data,
@@ -280,7 +222,6 @@ def adaptive_interpolate(data):
 
 
 def _explain_method_choice(context, method):
-    """Объясняет выбор метода для пропуска."""
     gap_size = context['gap_size']
     is_stable = context['is_stable']
     
@@ -305,14 +246,6 @@ def _explain_method_choice(context, method):
 
 
 def visualize_adaptive_interpolation(original_data, result, series_id):
-    """
-    Визуализирует результаты адаптивной интерполяции.
-    
-    Args:
-        original_data: Исходные данные
-        result: Результат adaptive_interpolate
-        series_id: ID серии
-    """
     import matplotlib.pyplot as plt
     
     plt.figure(figsize=(15, 8))
@@ -354,7 +287,6 @@ if __name__ == "__main__":
     # Тестирование
     from data_analyzer import analyze_data, get_series_data
     
-    print("Тестирование адаптивной интерполяции...")
     df_clean, top_stats, top_ids = analyze_data()
     
     # Тестируем на первой серии
@@ -363,13 +295,7 @@ if __name__ == "__main__":
     
     result = adaptive_interpolate(test_data)
     
-    print(f"\n=== РЕЗУЛЬТАТ АДАПТИВНОЙ ИНТЕРПОЛЯЦИИ ===")
-    print(f"Всего пропусков: {result['total_gaps']}")
-    print(f"Использованные методы: {result['methods_used']}")
     
     if result['gaps_info']:
-        print("\nДетали по пропускам:")
         for gap_info in result['gaps_info']:
             gap = gap_info['gap']
-            print(f"  {gap['start_date']} - {gap['end_date']} ({gap['size']} дней): {gap_info['selected_method']}")
-            print(f"    {gap_info['reason']}")

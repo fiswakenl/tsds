@@ -1,1 +1,12 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Data files
 data/raw/collected.csv
+data/processed/*.csv
+data/temp/
+
+# Jupyter Notebook
+.ipynb_checkpoints
