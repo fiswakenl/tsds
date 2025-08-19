@@ -1,4 +1,21 @@
 import polars as pl
+import os
+
+def save_interpolated_data(data, series_id, method):
+    """Сохраняет интерполированные данные в CSV файл"""
+    # Создаем папку только при сохранении
+    output_dir = 'data/processed'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Формат файла: series_{id}_{method}_interpolated.csv
+    filename = f'series_{series_id}_{method}_interpolated.csv'
+    filepath = os.path.join(output_dir, filename)
+    
+    # Сохраняем с форматированием дат
+    data.write_csv(filepath, datetime_format='%Y-%m-%d')
+    print(f"Данные сохранены: {filepath}")
+    return filepath
 
 def get_top_series(input_file='data/raw/collected.csv', top_n=10):
     df = pl.read_csv(

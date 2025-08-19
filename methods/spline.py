@@ -1,10 +1,10 @@
 import polars as pl
 import numpy as np
-from scipy import interpolate
+from scipy import interpolate as scipy_interp
 
 def interpolate(df, order=3):
     df = df.with_columns(pl.col("date").dt.date())
-    date_range = pl.date_range(df["date"].min(), df["date"].max(), interval="1d", eager=True).to_series()
+    date_range = pl.date_range(df["date"].min(), df["date"].max(), interval="1d", eager=True)
     
     full_df = pl.DataFrame({"date": date_range})
     merged = full_df.join(df, on="date", how="left")
@@ -19,7 +19,7 @@ def interpolate(df, order=3):
     else:
         x_known = np.where(mask)[0]
         y_known = values[mask]
-        spline = interpolate.UnivariateSpline(x_known, y_known, s=0, k=min(order, len(x_known)-1))
+        spline = scipy_interp.UnivariateSpline(x_known, y_known, s=0, k=min(order, len(x_known)-1))
         values[~mask] = spline(np.where(~mask)[0])
         values = np.clip(values, 0, None)
     

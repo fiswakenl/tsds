@@ -3,7 +3,7 @@ import numpy as np
 
 def interpolate(df):
     df = df.with_columns(pl.col("date").dt.date())
-    date_range = pl.date_range(df["date"].min(), df["date"].max(), interval="1d", eager=True).to_series()
+    date_range = pl.date_range(df["date"].min(), df["date"].max(), interval="1d", eager=True)
     
     full_df = pl.DataFrame({"date": date_range})
     merged = full_df.join(df, on="date", how="left")

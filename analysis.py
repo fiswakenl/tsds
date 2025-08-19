@@ -8,7 +8,9 @@ print(f"Доступные серии: {top_ids[:5]}")
 print("\nПримеры использования:")
 print(f"plot_series('{top_ids[0]}')  # автоматический выбор метода")
 print(f"plot_series('{top_ids[0]}', 'linear')  # конкретный метод")
+print(f"plot_series('{top_ids[0]}', save_csv=True)  # с сохранением CSV")
 print(f"compare_all_methods('{top_ids[0]}')  # сравнение всех методов")
+print(f"compare_all_methods('{top_ids[0]}', save_csv=True)  # с сохранением всех CSV")
 
 # %% Быстрая интерполяция с автовыбором метода
 plot_series(top_ids[0])
@@ -22,5 +24,13 @@ results = compare_all_methods(top_ids[0])
 # %% Анализ других серий
 plot_series(top_ids[1])
 compare_all_methods(top_ids[1])
+
+# %% Тестирование разных методов интерполяции
+plot_series(top_ids[0], 'spline')
+plot_series(top_ids[0], 'polynomial') 
+plot_series(top_ids[0], 'log')
+
+# %% Пример сохранения CSV
+# plot_series(top_ids[0], 'linear', save_csv=True)
 
 # %%
