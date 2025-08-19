@@ -2,6 +2,8 @@
 import matplotlib.pyplot as plt
 from interpolation_controller import interpolate, compare_all_methods
 from data_analyzer import analyze_data, get_series_data
+from auto_interpolation import auto_select_method
+from adaptive_interpolation import adaptive_interpolate, visualize_adaptive_interpolation
 from pathlib import Path
 
 plt.rcParams["figure.figsize"] = (12, 6)
@@ -12,13 +14,19 @@ df_clean, top_stats, top_ids = analyze_data()
 
 # %% Быстрая интерполяция с графиком
 def quick_plot(series_id, method="linear"):
-    """Интерполяция + график одной командой"""
+    """Интерполяция + график одной командой. Используйте method='auto' для автоматического выбора."""
     # Загружаем исходные данные через data_analyzer
     original_data = get_series_data(df_clean, series_id)
 
     if original_data.empty:
         print(f"Серия {series_id} не найдена в данных")
         return None
+
+    # Автоматический выбор метода если method='auto'
+    if method == 'auto':
+        selection_result = auto_select_method(original_data)
+        method = selection_result['selected_method']
+        print(f"Автоматически выбран метод: {method} ({selection_result['confidence']} уверенность)")
 
     # Выполняем интерполяцию (создаем временный CSV для совместимости)
     temp_path = Path("data") / "temp"
@@ -158,6 +166,90 @@ def quick_compare(series_id):
     return None
 
 
+def auto_interpolate(series_id):
+    """Автоматическая интерполяция с выбором оптимального метода"""
+    # Загружаем исходные данные через data_analyzer
+    original_data = get_series_data(df_clean, series_id)
+    
+    if original_data.empty:
+        print(f"Серия {series_id} не найдена в данных")
+        return None
+
+    # Автоматически выбираем метод
+    selection_result = auto_select_method(original_data)
+    best_method = selection_result['selected_method']
+    
+    print(f"\n=== АВТОМАТИЧЕСКИЙ ВЫБОР МЕТОДА ===")
+    print(f"Выбранный метод: {best_method}")
+    print(f"Уверенность: {selection_result['confidence']}")
+    print(f"Обоснование: {selection_result['reason']}")
+    
+    # Выполняем интерполяцию выбранным методом
+    temp_path = Path("data") / "temp"
+    temp_path.mkdir(exist_ok=True)
+    temp_file = temp_path / f"series_{series_id}.csv"
+    original_data.to_csv(temp_file, index=False)
+    
+    result = interpolate(series_id, best_method, input_dir="data/temp", save_results=False)
+
+    # График с исходными и интерполированными данными
+    plt.figure(figsize=(12, 6))
+
+    # Интерполированные данные (линия) - рисуем сначала
+    plt.plot(
+        result["date"],
+        result["value"],
+        "g-",
+        alpha=0.8,
+        linewidth=2,
+        label=f"{best_method} интерполяция (авто)",
+    )
+
+    # Исходные данные (точки) - рисуем поверх линии
+    plt.plot(
+        original_data["date"],
+        original_data["value"],
+        "ro",
+        alpha=0.8,
+        markersize=5,
+        label="Исходные данные",
+        zorder=10,
+    )
+
+    plt.title(f"Автоматическая интерполяция - Серия {series_id}\nМетод: {best_method} (уверенность: {selection_result['confidence']})")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+    
+    # Удаляем временный файл
+    temp_file.unlink()
+
+    return result, selection_result
+
+
+def adaptive_plot(series_id):
+    """Адаптивная интерполяция с анализом каждого пропуска отдельно"""
+    # Загружаем исходные данные через data_analyzer
+    original_data = get_series_data(df_clean, series_id)
+    
+    if original_data.empty:
+        print(f"Серия {series_id} не найдена в данных")
+        return None
+
+    print(f"\n=== АДАПТИВНАЯ ИНТЕРПОЛЯЦИЯ ===")
+    print(f"Анализ серии {series_id}: каждый пропуск обрабатывается индивидуально")
+    
+    # Выполняем адаптивную интерполяцию
+    result = adaptive_interpolate(original_data)
+    
+    # Визуализируем результаты
+    visualize_adaptive_interpolation(original_data, result, series_id)
+    
+    return result
+
+
 # %% Примеры использования
 print("\nГОТОВ К АНАЛИЗУ!")
 print("Доступные серии для анализа:")
@@ -166,11 +258,13 @@ for series_id in top_ids[:5]:  # показываем первые 5 из топ
 print("...")
 print("Примеры команд:")
 print(f"quick_plot('{top_ids[0]}', 'linear')")
-print(f"quick_plot('{top_ids[0]}', 'log')")
-print(f"quick_compare('{top_ids[0]}')")
+print(f"quick_plot('{top_ids[0]}', 'auto')  # Автоматический выбор")
+print(f"quick_compare('{top_ids[0]}')  # Сравнение всех методов")
+print(f"auto_interpolate('{top_ids[0]}')  # Детальный автовыбор")
+print(f"adaptive_plot('{top_ids[0]}')  # Адаптивная интерполяция")
 
 
-# %% Сравнение всех методов интерполяции
-quick_compare(str(top_ids[9]))
+# %% Адаптивная интерполяция (разные методы для разных пропусков)
+adaptive_plot(str(top_ids[0]))
 
 # %%
