@@ -13,8 +13,12 @@ def interpolate(df, order=3):
     server_id = df['id'].iloc[0]
     
     if len(df) < order + 1:
-        from .linear_interpolation import interpolate as linear_interpolate
-        return linear_interpolate(df)
+        # Для небольших данных используем линейную интерполяцию
+        return df.set_index('date').reindex(
+            pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='D')
+        ).interpolate(method='linear').fillna(method='bfill').fillna(method='ffill').reset_index().rename(
+            columns={'index': 'date'}
+        )[['id', 'date', 'value']].astype({'value': int})
     
     date_range = pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='D')
     df_indexed = df.set_index('date').reindex(date_range)
