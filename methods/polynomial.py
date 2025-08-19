@@ -1,10 +1,23 @@
-import pandas as pd
+import polars as pl
+import numpy as np
 
 def interpolate(df, order=2):
-    df = df.copy()
-    df['date'] = pd.to_datetime(df['date']).dt.normalize()
-    date_range = pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='D')
-    df_indexed = df.set_index('date').reindex(date_range)
-    df_indexed['value'] = df_indexed['value'].interpolate(method='polynomial', order=order).clip(lower=0).astype(int)
-    df_indexed['id'] = df['id'].iloc[0]
-    return df_indexed.reset_index().rename(columns={'index': 'date'})[['id', 'date', 'value']]
+    df = df.with_columns(pl.col("date").dt.date())
+    date_range = pl.date_range(df["date"].min(), df["date"].max(), interval="1d", eager=True).to_series()
+    
+    full_df = pl.DataFrame({"date": date_range})
+    merged = full_df.join(df, on="date", how="left")
+    
+    values = merged["value"].to_numpy()
+    mask = ~np.isnan(values)
+    if mask.sum() > order + 1:
+        x_known = np.where(mask)[0]
+        y_known = values[mask]
+        poly_coef = np.polyfit(x_known, y_known, order)
+        values[~mask] = np.polyval(poly_coef, np.where(~mask)[0])
+        values = np.clip(values, 0, None)
+    
+    return merged.with_columns([
+        pl.lit(values.astype(int)).alias("value"),
+        pl.lit(df["id"][0]).alias("id")
+    ]).select(["id", "date", "value"])

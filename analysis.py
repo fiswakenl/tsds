@@ -1,5 +1,7 @@
 # %% TSDS - Time Series Data Analysis
-import setup_env
+import os
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+
 from core import plot_series, compare_all_methods, top_ids
 
 print(f"Доступные серии: {top_ids[:5]}")

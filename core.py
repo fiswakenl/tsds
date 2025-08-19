@@ -19,7 +19,7 @@ def interpolate_series(series_id, method='auto'):
     if method == 'auto':
         selection = select_best_method(original_data)
         method = selection['method']
-        print(f"Выбран метод: {method} ({selection['reason']})")
+        print(f"Выбран метод: {method} ({selection['confidence']})")
     
     interpolated_data = METHODS[method](original_data)
     return original_data, interpolated_data, method

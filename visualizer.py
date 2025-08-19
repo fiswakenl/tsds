@@ -2,14 +2,11 @@ import matplotlib.pyplot as plt
 
 def plot_interpolation(original_data, interpolated_data, method, series_id):
     plt.figure(figsize=(12, 6))
-    
-    plt.plot(interpolated_data["date"], interpolated_data["value"], "b-", 
+    plt.plot(interpolated_data["date"].to_list(), interpolated_data["value"].to_list(), "b-", 
              alpha=0.8, linewidth=2, label=f"{method} интерполяция")
-    
-    plt.plot(original_data["date"], original_data["value"], "ro", 
+    plt.plot(original_data["date"].to_list(), original_data["value"].to_list(), "ro", 
              alpha=0.8, markersize=5, label="Исходные данные", zorder=10)
-    
-    plt.title(f"Серия {series_id} - {method} интерполяция")
+    plt.title(f"Серия {series_id} - {method}")
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.xticks(rotation=45)
@@ -17,45 +14,25 @@ def plot_interpolation(original_data, interpolated_data, method, series_id):
     plt.show()
 
 def compare_methods(original_data, results, series_id):
-    methods = list(results.keys())
-    num_methods = len(methods)
-    
-    if num_methods <= 2:
-        rows, cols = 1, num_methods
-    elif num_methods <= 4:
-        rows, cols = 2, 2
-    else:
-        rows, cols = 2, 3
-    
-    fig, axes = plt.subplots(rows, cols, figsize=(15, 10))
-    if num_methods == 1:
-        axes = [axes]
-    elif rows == 1 or cols == 1:
-        axes = axes.flatten()
-    else:
-        axes = axes.flatten()
+    methods = [k for k, v in results.items() if v is not None]
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    axes = axes.flatten()
     
     colors = ["blue", "green", "orange", "purple"]
     
-    for i, (method, result) in enumerate(results.items()):
-        if result is None:
-            continue
-            
+    for i, method in enumerate(methods[:4]):
+        result = results[method]
         ax = axes[i]
-        color = colors[i % len(colors)]
         
-        ax.plot(result["date"], result["value"], f"{color[0]}-", 
-               alpha=0.8, linewidth=2, label=f"{method}")
-        
-        ax.plot(original_data["date"], original_data["value"], "ro", 
+        ax.plot(result["date"].to_list(), result["value"].to_list(), f"{colors[i][0]}-", 
+               alpha=0.8, linewidth=2, label=method)
+        ax.plot(original_data["date"].to_list(), original_data["value"].to_list(), "ro", 
                alpha=0.8, markersize=4, label="Исходные", zorder=10)
-        
-        ax.set_title(f"{method}")
+        ax.set_title(method)
         ax.legend()
         ax.grid(True, alpha=0.3)
-        ax.tick_params(axis="x", rotation=45)
     
-    for i in range(num_methods, len(axes)):
+    for i in range(len(methods), 4):
         axes[i].set_visible(False)
     
     plt.suptitle(f"Сравнение методов - Серия {series_id}", fontsize=14)

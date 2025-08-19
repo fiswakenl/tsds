@@ -45,5 +45,4 @@ def get_series_data(df_clean, series_id):
         .tail(1)
         .drop("day")
         .select(["id", "date", "value"])
-        .to_pandas()
     )
