@@ -7,6 +7,3 @@ __pycache__/
 data/raw/collected.csv
 data/processed/*.csv
 data/temp/
-
-# Jupyter Notebook
-.ipynb_checkpoints
