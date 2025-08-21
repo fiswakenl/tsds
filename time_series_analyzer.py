@@ -58,7 +58,7 @@ stats = (
     .filter(pl.col("n_points") >= 100)
     .filter(pl.col("variability") > 0.01)
     .sort("n_points", descending=True)
-    .head(100)
+    .head(10000)
 )
 
 all_series_ids = stats["item_id"].to_list()
@@ -116,7 +116,7 @@ lines = base_chart.mark_line(point=True, strokeWidth=2).encode(
 )
 
 final_chart = lines.properties(
-    width=1200, height=600,
+    width=1800, height=900,
     title="Временные ряды (клик по легенде чтобы скрыть/показать)"
 ).resolve_scale(
     x='shared', y='independent'
