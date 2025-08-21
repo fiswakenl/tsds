@@ -186,11 +186,32 @@ def create_summary_plot(resampled_data, gaps_mask):
         if len(gap_dates) > 0:
             print(f"Найдено {len(gap_dates)} дней с пропусками")
             
-            # Простая группировка смежных дат
+            # Группируем смежные даты в непрерывные периоды
             from datetime import timedelta
-            for gap_date in gap_dates:
-                # Рисуем тонкую вертикальную полосу для каждого дня с пропуском
-                ax.axvspan(gap_date, gap_date + timedelta(days=1), 
+            import pandas as pd
+            
+            gap_dates_sorted = sorted(gap_dates)
+            periods = []
+            start = gap_dates_sorted[0]
+            end = start
+            
+            for i in range(1, len(gap_dates_sorted)):
+                current_date = gap_dates_sorted[i]
+                if current_date == end + timedelta(days=1):
+                    # Продолжаем текущий период
+                    end = current_date
+                else:
+                    # Завершаем текущий период и начинаем новый
+                    periods.append((start, end))
+                    start = current_date
+                    end = current_date
+            
+            # Добавляем последний период
+            periods.append((start, end))
+            
+            # Рисуем сплошные области для каждого периода пропусков
+            for start_date, end_date in periods:
+                ax.axvspan(start_date, end_date + timedelta(days=1), 
                           color='red', alpha=0.2, zorder=0)
     
     # Цветовая палитра для 10 рядов
