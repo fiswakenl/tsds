@@ -89,6 +89,7 @@ def resample_series(df_clean, series_stats):
     print(f"\nРесемплирование временных рядов...")
     
     resampled_data = []
+    all_gaps_mask = None  # Маска для отслеживания пропусков
     
     for row in series_stats.iter_rows():
         item_id = row[0]
@@ -139,20 +140,58 @@ def resample_series(df_clean, series_stats):
             # НЕ заполняем null в value - пропуски останутся как null
         )
         
+        # Создаем маску пропусков для текущего ряда
+        gaps_mask = resampled["value"].is_null()
+        
+        # Объединяем с общей маской пропусков
+        if all_gaps_mask is None:
+            all_gaps_mask = resampled.select(["day"]).with_columns(
+                gaps_mask.alias("has_gap")
+            )
+        else:
+            # Добавляем пропуски текущего ряда к общей маске
+            current_gaps = resampled.select(["day"]).with_columns(
+                gaps_mask.alias("current_gap")
+            )
+            all_gaps_mask = (
+                all_gaps_mask
+                .join(current_gaps, on="day", how="full", suffix="_new")
+                .with_columns([
+                    (pl.col("has_gap").fill_null(False) | pl.col("current_gap").fill_null(False)).alias("has_gap")
+                ])
+                .select(["day", "has_gap"])  # Оставляем только нужные колонки
+            )
+        
         print(f"  Обработано: {len(resampled)} дней")
         
         resampled_data.append((item_id, resampled))
     
-    return resampled_data
+    return resampled_data, all_gaps_mask
 
-def create_summary_plot(resampled_data):
+def create_summary_plot(resampled_data, gaps_mask):
     """
     Создание единого графика всех топ-10 временных рядов с разными цветами
+    и выделением периодов с пропусками
     """
     print("\nСоздаем сводный график...")
     
     # Создаем один большой график
     fig, ax = plt.subplots(figsize=(16, 10))
+    
+    # Сначала рисуем области с пропусками
+    if gaps_mask is not None:
+        gap_dates = gaps_mask.filter(pl.col("has_gap")).select("day").to_pandas()["day"]
+        
+        # Группируем смежные даты в периоды для более эффективного отображения
+        if len(gap_dates) > 0:
+            print(f"Найдено {len(gap_dates)} дней с пропусками")
+            
+            # Простая группировка смежных дат
+            from datetime import timedelta
+            for gap_date in gap_dates:
+                # Рисуем тонкую вертикальную полосу для каждого дня с пропуском
+                ax.axvspan(gap_date, gap_date + timedelta(days=1), 
+                          color='red', alpha=0.2, zorder=0)
     
     # Цветовая палитра для 10 рядов
     colors = plt.cm.tab10(range(10))
@@ -188,7 +227,16 @@ def create_summary_plot(resampled_data):
     plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
     
     # Добавляем легенду
-    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+    # Сначала легенда для временных рядов
+    legend1 = ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+    
+    # Добавляем элемент для обозначения пропусков
+    from matplotlib.patches import Patch
+    gap_patch = Patch(color='red', alpha=0.2, label='Периоды с пропусками')
+    legend2 = ax.legend(handles=[gap_patch], bbox_to_anchor=(1.05, 0.15), loc='upper left', fontsize=10)
+    
+    # Возвращаем первую легенду чтобы показать обе
+    ax.add_artist(legend1)
     
     # Улучшаем компоновку
     plt.tight_layout()
@@ -205,11 +253,11 @@ def main():
     # Анализируем временные ряды
     df_clean, stats = analyze_time_series()
     
-    # Ресемплируем топ-10 рядов
-    resampled_data = resample_series(df_clean, stats)
+    # Ресемплируем топ-10 рядов и получаем маску пропусков
+    resampled_data, gaps_mask = resample_series(df_clean, stats)
     
-    # Создаем визуализацию
-    create_summary_plot(resampled_data)
+    # Создаем визуализацию с выделением пропусков
+    create_summary_plot(resampled_data, gaps_mask)
     
     print("\n" + "=" * 80)
     print("АНАЛИЗ ЗАВЕРШЕН")
