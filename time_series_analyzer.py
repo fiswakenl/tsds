@@ -47,27 +47,25 @@ for start_gap, end_gap in gap_periods:
         current_date += timedelta(days=1)
 
 # %%
-# Отбор лучших рядов
+# Отбор рядов с минимальным количеством точек
 stats = (
     df.filter(~pl.col("date").is_in(list(excluded_dates)))
     .group_by("item_id")
     .agg([
-        pl.col("y").count().alias("n_points"),
-        pl.col("y").std().alias("variability")
+        pl.col("y").count().alias("n_points")
     ])
-    .filter(pl.col("n_points") >= 100)
-    .filter(pl.col("variability") > 0.01)
+    .filter(pl.col("n_points") > 8)
     .sort("n_points", descending=True)
-    .head(10000)
 )
 
 all_series_ids = stats["item_id"].to_list()
 
 # %%
-# Подготовка данных для графика
+# Подготовка данных для графика (векторизованная версия)
 def prepare_data(series_ids, batch_size=10):
-    all_data = []
+    # Создаем mapping item_id -> group_num
     total_groups = (len(series_ids) + batch_size - 1) // batch_size
+    group_mapping = []
     
     for group_idx in range(total_groups):
         start_idx = group_idx * batch_size
@@ -75,21 +73,30 @@ def prepare_data(series_ids, batch_size=10):
         group_batch = series_ids[start_idx:end_idx]
         
         for item_id in group_batch:
-            series_data = df.filter(
-                (pl.col("item_id") == item_id) & (pl.col("y").is_not_null())
-            ).sort("date")
-            
-            for row in series_data.iter_rows(named=True):
-                all_data.append({
-                    'date': row['date'],
-                    'value': row['y'],
-                    'item_id': str(item_id),
-                    'group_num': group_idx + 1,
-                })
+            group_mapping.append({
+                'item_id': item_id,
+                'group_num': group_idx + 1
+            })
     
-    return pl.DataFrame(all_data)
+    # Векторизованные операции Polars
+    mapping_df = pl.DataFrame(group_mapping)
+    
+    # Присоединяем group_num к основным данным одной операцией
+    result = (
+        df.filter(pl.col("y").is_not_null())
+        .join(mapping_df, on="item_id", how="inner")
+        .sort(["group_num", "item_id", "date"])
+        .select([
+            pl.col("date"),
+            pl.col("y").alias("value"),
+            pl.col("item_id").cast(pl.String),
+            pl.col("group_num")
+        ])
+    )
+    
+    return result
 
-chart_data = prepare_data(all_series_ids, batch_size=10)
+chart_data = prepare_data(all_series_ids, batch_size=30)
 
 # %%
 # График
